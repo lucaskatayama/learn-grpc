@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package ping;
+
+// The greeting service definition.
+service Pinger {
+  // Sends a greeting
+  rpc ServerStream (PingRequest) returns (stream PingReply) {}
+  rpc ClientStream (stream PingRequest) returns (PingReply) {}
+  rpc BidiStream (stream PingRequest) returns (stream PingReply) {}
+}
+
+// The request message containing the user's name.
+message PingRequest {
+  string uuid = 1;
+}
+
+// The response message containing the greetings
+message PingReply {
+  string createdAt = 1;
+}
