@@ -1,12 +1,14 @@
 # Simple Streaming Application
 
-Sends a streaming ping response to the client
+Streaming communication.
 
+- Server streaming
+- Client streaming
+- Bidirectional streaming
 
 ## Buf Generate
 
 Using Buf to generate `protobuf` and `grpc` codes
-
 
 ## Reference
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/lucaskatayama/learn-grpc/examples/simple-streaming/proto/ping"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -15,9 +16,12 @@ type server struct {
 	ping.UnimplementedPingerServer
 }
 
-func (s server) Ping(request *ping.PingRequest, stream ping.Pinger_PingServer) error {
-
+func (s server) ServerStream(request *ping.PingRequest, stream ping.Pinger_ServerStreamServer) error {
+	count := 0
 	for {
+		if count > 5 {
+			return nil
+		}
 		select {
 		case <-stream.Context().Done():
 			slog.Info("connection closed")
@@ -29,8 +33,37 @@ func (s server) Ping(request *ping.PingRequest, stream ping.Pinger_PingServer) e
 				CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
 			}); err != nil {
 				slog.Error("failed", "err", err)
-				return status.Error(codes.DataLoss, "failed to send message")
+				return status.Error(codes.Canceled, "failed to send message")
 			}
+		}
+		count++
+	}
+}
+
+func (s server) ClientStream(stream ping.Pinger_ClientStreamServer) error {
+	for {
+		d, err := stream.Recv()
+		if err != nil {
+			slog.Error("receiving message", "err", err)
+			return status.Error(codes.Canceled, "stream canceled")
+		}
+		slog.Info("message", "msg", d.Uuid)
+	}
+}
+
+func (s server) BidiStream(stream ping.Pinger_BidiStreamServer) error {
+	for {
+		d, err := stream.Recv()
+		if err != nil {
+			slog.Error("receiving message", "err", err)
+			return status.Error(codes.Canceled, "stream canceled")
+		}
+		slog.Info("message", "msg", d.Uuid)
+		if err := stream.Send(&ping.PingReply{
+			CreatedAt: fmt.Sprintf("[%s] -> %s", d.Uuid, time.Now().Format(time.RFC3339Nano)),
+		}); err != nil {
+			slog.Error("receiving message", "err", err)
+			return status.Error(codes.Canceled, "stream canceled")
 		}
 	}
 }

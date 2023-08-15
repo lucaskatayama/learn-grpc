@@ -19,7 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Pinger_Ping_FullMethodName = "/ping.Pinger/Ping"
+	Pinger_ServerStream_FullMethodName = "/ping.Pinger/ServerStream"
+	Pinger_ClientStream_FullMethodName = "/ping.Pinger/ClientStream"
+	Pinger_BidiStream_FullMethodName   = "/ping.Pinger/BidiStream"
 )
 
 // PingerClient is the client API for Pinger service.
@@ -27,7 +29,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PingerClient interface {
 	// Sends a greeting
-	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (Pinger_PingClient, error)
+	ServerStream(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (Pinger_ServerStreamClient, error)
+	ClientStream(ctx context.Context, opts ...grpc.CallOption) (Pinger_ClientStreamClient, error)
+	BidiStream(ctx context.Context, opts ...grpc.CallOption) (Pinger_BidiStreamClient, error)
 }
 
 type pingerClient struct {
@@ -38,12 +42,12 @@ func NewPingerClient(cc grpc.ClientConnInterface) PingerClient {
 	return &pingerClient{cc}
 }
 
-func (c *pingerClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (Pinger_PingClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Pinger_ServiceDesc.Streams[0], Pinger_Ping_FullMethodName, opts...)
+func (c *pingerClient) ServerStream(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (Pinger_ServerStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Pinger_ServiceDesc.Streams[0], Pinger_ServerStream_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &pingerPingClient{stream}
+	x := &pingerServerStreamClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -53,16 +57,81 @@ func (c *pingerClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.C
 	return x, nil
 }
 
-type Pinger_PingClient interface {
+type Pinger_ServerStreamClient interface {
 	Recv() (*PingReply, error)
 	grpc.ClientStream
 }
 
-type pingerPingClient struct {
+type pingerServerStreamClient struct {
 	grpc.ClientStream
 }
 
-func (x *pingerPingClient) Recv() (*PingReply, error) {
+func (x *pingerServerStreamClient) Recv() (*PingReply, error) {
+	m := new(PingReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *pingerClient) ClientStream(ctx context.Context, opts ...grpc.CallOption) (Pinger_ClientStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Pinger_ServiceDesc.Streams[1], Pinger_ClientStream_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &pingerClientStreamClient{stream}
+	return x, nil
+}
+
+type Pinger_ClientStreamClient interface {
+	Send(*PingRequest) error
+	CloseAndRecv() (*PingReply, error)
+	grpc.ClientStream
+}
+
+type pingerClientStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *pingerClientStreamClient) Send(m *PingRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *pingerClientStreamClient) CloseAndRecv() (*PingReply, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(PingReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *pingerClient) BidiStream(ctx context.Context, opts ...grpc.CallOption) (Pinger_BidiStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Pinger_ServiceDesc.Streams[2], Pinger_BidiStream_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &pingerBidiStreamClient{stream}
+	return x, nil
+}
+
+type Pinger_BidiStreamClient interface {
+	Send(*PingRequest) error
+	Recv() (*PingReply, error)
+	grpc.ClientStream
+}
+
+type pingerBidiStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *pingerBidiStreamClient) Send(m *PingRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *pingerBidiStreamClient) Recv() (*PingReply, error) {
 	m := new(PingReply)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -75,7 +144,9 @@ func (x *pingerPingClient) Recv() (*PingReply, error) {
 // for forward compatibility
 type PingerServer interface {
 	// Sends a greeting
-	Ping(*PingRequest, Pinger_PingServer) error
+	ServerStream(*PingRequest, Pinger_ServerStreamServer) error
+	ClientStream(Pinger_ClientStreamServer) error
+	BidiStream(Pinger_BidiStreamServer) error
 	mustEmbedUnimplementedPingerServer()
 }
 
@@ -83,8 +154,14 @@ type PingerServer interface {
 type UnimplementedPingerServer struct {
 }
 
-func (UnimplementedPingerServer) Ping(*PingRequest, Pinger_PingServer) error {
-	return status.Errorf(codes.Unimplemented, "method Ping not implemented")
+func (UnimplementedPingerServer) ServerStream(*PingRequest, Pinger_ServerStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ServerStream not implemented")
+}
+func (UnimplementedPingerServer) ClientStream(Pinger_ClientStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ClientStream not implemented")
+}
+func (UnimplementedPingerServer) BidiStream(Pinger_BidiStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method BidiStream not implemented")
 }
 func (UnimplementedPingerServer) mustEmbedUnimplementedPingerServer() {}
 
@@ -99,25 +176,77 @@ func RegisterPingerServer(s grpc.ServiceRegistrar, srv PingerServer) {
 	s.RegisterService(&Pinger_ServiceDesc, srv)
 }
 
-func _Pinger_Ping_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _Pinger_ServerStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(PingRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(PingerServer).Ping(m, &pingerPingServer{stream})
+	return srv.(PingerServer).ServerStream(m, &pingerServerStreamServer{stream})
 }
 
-type Pinger_PingServer interface {
+type Pinger_ServerStreamServer interface {
 	Send(*PingReply) error
 	grpc.ServerStream
 }
 
-type pingerPingServer struct {
+type pingerServerStreamServer struct {
 	grpc.ServerStream
 }
 
-func (x *pingerPingServer) Send(m *PingReply) error {
+func (x *pingerServerStreamServer) Send(m *PingReply) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _Pinger_ClientStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(PingerServer).ClientStream(&pingerClientStreamServer{stream})
+}
+
+type Pinger_ClientStreamServer interface {
+	SendAndClose(*PingReply) error
+	Recv() (*PingRequest, error)
+	grpc.ServerStream
+}
+
+type pingerClientStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *pingerClientStreamServer) SendAndClose(m *PingReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *pingerClientStreamServer) Recv() (*PingRequest, error) {
+	m := new(PingRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Pinger_BidiStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(PingerServer).BidiStream(&pingerBidiStreamServer{stream})
+}
+
+type Pinger_BidiStreamServer interface {
+	Send(*PingReply) error
+	Recv() (*PingRequest, error)
+	grpc.ServerStream
+}
+
+type pingerBidiStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *pingerBidiStreamServer) Send(m *PingReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *pingerBidiStreamServer) Recv() (*PingRequest, error) {
+	m := new(PingRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Pinger_ServiceDesc is the grpc.ServiceDesc for Pinger service.
@@ -129,9 +258,20 @@ var Pinger_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Ping",
-			Handler:       _Pinger_Ping_Handler,
+			StreamName:    "ServerStream",
+			Handler:       _Pinger_ServerStream_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "ClientStream",
+			Handler:       _Pinger_ClientStream_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "BidiStream",
+			Handler:       _Pinger_BidiStream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "ping.proto",
