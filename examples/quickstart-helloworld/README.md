@@ -19,6 +19,19 @@ $ protoc --go_out=. --go_opt=paths=source_relative \
     helloworld/helloworld.proto
 ```
 
+## Running
+
+Start server
+
+```sh
+$ go run greeter_server/main.go
+```
+
+Run client request
+
+```shell
+$ go run greeter_client/main.go
+```
 
 ## References
 
